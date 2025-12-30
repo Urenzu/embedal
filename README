@@ -1,0 +1,12 @@
+# Embedal playground
+
+A hot-reloadable TypeScript + Three.js scene with space reserved for future embedding visualizations.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+The dev server uses Vite with HMR. Visit the printed URL (default http://localhost:5173) and you should see a black scene, a rotating wireframe mesh, and a centered square UI canvas placeholder ready for embedding experiments.

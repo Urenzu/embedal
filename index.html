@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embedal | Embedding Canvas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <section class="stage">
+        <div class="stage-frame">
+          <canvas
+            id="embedding-canvas"
+            aria-label="Embedding visualization canvas"
+          ></canvas>
+          <div class="canvas-hud">
+            <div class="hud-title">Embedding Space</div>
+            <div class="hud-detail">Drag to orbit, scroll to zoom</div>
+          </div>
+          <div class="hover-tooltip" id="hover-tooltip" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

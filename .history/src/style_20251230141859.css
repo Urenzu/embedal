@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+:root {
+  color-scheme: dark;
+  font-family: 'Space Grotesk', 'Segoe UI', Tahoma, sans-serif;
+  --bg: #000;
+  --panel: #0b0b0b;
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: #55f8b7;
+  --accent-soft: rgba(85, 248, 183, 0.3);
+  --accent-2: #6cc2ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: #f5f5f5;
+  overflow: hidden;
+}
+
+#three-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+#drop-zone {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.12), transparent 60%),
+    rgba(10, 10, 10, 0.9);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#drop-zone::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#drop-zone:hover,
+#drop-zone:focus-visible,
+#drop-zone.drag-active {
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.75);
+}
+
+#drop-zone:hover::after,
+#drop-zone:focus-visible::after,
+#drop-zone.drag-active::after {
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+#drop-zone:focus-visible {
+  outline: none;
+}
+
+.drop-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+#file-input {
+  display: none;
+}
+
+#ui-canvas {
+  width: min(480px, 70vw);
+  height: min(480px, 70vw);
+  background-color: var(--panel);
+  background-image:
+    radial-gradient(circle at 20% 15%, rgba(85, 248, 183, 0.15), transparent 50%),
+    radial-gradient(circle at 80% 85%, rgba(108, 194, 255, 0.12), transparent 55%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: auto, auto, 28px 28px, 28px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+canvas {
+  display: block;
+}
