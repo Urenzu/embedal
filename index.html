@@ -13,6 +13,22 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <div class="ingest-panel" id="ingest-panel">
+      <div class="ingest-title">Data Ingest</div>
+      <button class="ingest-button" id="ingest-button" type="button">
+        Load CSV/TSV
+      </button>
+      <div class="ingest-hint">Drop file here</div>
+      <div class="ingest-status" id="ingest-status">
+        Dataset: mock.csv · 180 pts
+      </div>
+      <input
+        class="ingest-input"
+        id="ingest-input"
+        type="file"
+        accept=".csv,.tsv,text/csv,text/tab-separated-values"
+      />
+    </div>
     <div class="page">
       <section class="stage">
         <div class="stage-frame">

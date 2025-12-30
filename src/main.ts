@@ -1,14 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
-type Point = {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  cluster: number;
-  radius: number;
-};
+import { buildMockCsv, clamp, parseCsv, type Point } from './data/ingest';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#embedding-canvas');
 if (!canvas) {
@@ -17,6 +9,10 @@ if (!canvas) {
 
 const tooltip = document.querySelector<HTMLDivElement>('#hover-tooltip');
 const stageFrame = canvas.closest<HTMLElement>('.stage-frame');
+const ingestPanel = document.querySelector<HTMLDivElement>('#ingest-panel');
+const ingestInput = document.querySelector<HTMLInputElement>('#ingest-input');
+const ingestButton = document.querySelector<HTMLButtonElement>('#ingest-button');
+const ingestStatus = document.querySelector<HTMLDivElement>('#ingest-status');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
@@ -54,8 +50,17 @@ axes.setColors(0xffffff, 0x7d7d7d, 0x3d3d3d);
 scene.add(axes);
 
 const mockCsv = buildMockCsv(180);
-const points = parseCsv(mockCsv);
-const pointCloud = createPointCloud(points);
+let points = parseCsv(mockCsv);
+const material = new THREE.PointsMaterial({
+  size: 0.05,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.9,
+  depthWrite: false,
+});
+const pointCloud = new THREE.Points(new THREE.BufferGeometry(), material);
+updatePointCloud(points);
+setIngestStatus(`Dataset: mock.csv · ${points.length} pts`);
 scene.add(pointCloud);
 
 const raycaster = new THREE.Raycaster();
@@ -93,6 +98,56 @@ canvas.addEventListener('pointerleave', () => {
 let lastTime = 0;
 requestAnimationFrame(animate);
 
+ingestButton?.addEventListener('click', () => {
+  ingestInput?.click();
+});
+
+ingestInput?.addEventListener('change', () => {
+  const file = ingestInput.files?.[0];
+  if (!file) {
+    return;
+  }
+  ingestInput.value = '';
+  handleFile(file);
+});
+
+let dragDepth = 0;
+const dropTargets = [stageFrame, ingestPanel].filter(Boolean) as HTMLElement[];
+
+const setDragActive = (active: boolean) => {
+  stageFrame?.classList.toggle('is-dragging', active);
+  ingestPanel?.classList.toggle('is-dragging', active);
+};
+
+dropTargets.forEach((target) => {
+  target.addEventListener('dragenter', (event) => {
+    event.preventDefault();
+    dragDepth += 1;
+    setDragActive(true);
+  });
+
+  target.addEventListener('dragover', (event) => {
+    event.preventDefault();
+  });
+
+  target.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) {
+      setDragActive(false);
+    }
+  });
+
+  target.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dragDepth = 0;
+    setDragActive(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      handleFile(file);
+    }
+  });
+});
+
 function animate(time: number) {
   const delta = Math.min((time - lastTime) / 1000, 0.033);
   lastTime = time;
@@ -112,6 +167,28 @@ function resize() {
   camera.aspect = rect.width / rect.height;
   camera.updateProjectionMatrix();
   renderer.setSize(rect.width, rect.height, false);
+}
+
+async function handleFile(file: File) {
+  try {
+    const text = await file.text();
+    const parsed = parseCsv(text);
+    if (parsed.length < 3) {
+      setIngestStatus(`Unable to parse ${file.name}`);
+      return;
+    }
+    updatePointCloud(parsed);
+    setIngestStatus(`Dataset: ${file.name} · ${parsed.length} pts`);
+  } catch (error) {
+    console.error(error);
+    setIngestStatus(`Failed to load ${file.name}`);
+  }
+}
+
+function setIngestStatus(message: string) {
+  if (ingestStatus) {
+    ingestStatus.textContent = message;
+  }
 }
 
 function updateHover() {
@@ -144,7 +221,11 @@ function showTooltip(point: Point) {
     return;
   }
 
-  tooltip.textContent = `id ${point.id} | x ${point.x.toFixed(2)} y ${point.y.toFixed(2)} z ${point.z.toFixed(2)}`;
+  if (point.label) {
+    tooltip.textContent = `id ${point.id} | ${point.label}`;
+  } else {
+    tooltip.textContent = `id ${point.id} | x ${point.x.toFixed(2)} y ${point.y.toFixed(2)} z ${point.z.toFixed(2)}`;
+  }
   tooltip.classList.add('is-visible');
 }
 
@@ -174,22 +255,23 @@ function positionTooltip() {
   tooltip.style.top = `${y}px`;
 }
 
-function createPointCloud(data: Point[]) {
+function updatePointCloud(data: Point[]) {
+  points = data;
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(data.length * 3);
   const colors = new Float32Array(data.length * 3);
-  const palette = [
-    new THREE.Color('#f5f5f5'),
-    new THREE.Color('#bdbdbd'),
-    new THREE.Color('#707070'),
-  ];
+  const clusterColors = new Map<number, THREE.Color>();
 
   data.forEach((point, index) => {
     const i = index * 3;
     positions[i] = point.x;
     positions[i + 1] = point.y;
     positions[i + 2] = point.z;
-    const color = palette[point.cluster % palette.length];
+    let color = clusterColors.get(point.cluster);
+    if (!color) {
+      color = colorForCluster(point.cluster);
+      clusterColors.set(point.cluster, color);
+    }
     colors[i] = color.r;
     colors[i + 1] = color.g;
     colors[i + 2] = color.b;
@@ -197,96 +279,28 @@ function createPointCloud(data: Point[]) {
 
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  const material = new THREE.PointsMaterial({
-    size: 0.05,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.9,
-    depthWrite: false,
-  });
-
-  return new THREE.Points(geometry, material);
+  geometry.computeBoundingSphere();
+  pointCloud.geometry.dispose();
+  pointCloud.geometry = geometry;
+  fitViewToPoints(geometry.boundingSphere);
 }
 
-function buildMockCsv(count: number) {
-  const rng = mulberry32(42);
-  const clusters = [
-    { x: -0.7, y: -0.2, z: 0.2 },
-    { x: 0.65, y: -0.15, z: -0.2 },
-    { x: 0.1, y: 0.6, z: 0.5 },
-    { x: -0.2, y: 0.1, z: -0.6 },
-  ];
-  const rows = ['id,x,y,z,cluster'];
-
-  for (let i = 0; i < count; i += 1) {
-    const cluster = i % clusters.length;
-    const jitter = 0.22;
-    const center = clusters[cluster];
-    const x = clamp(center.x + randomNormal(rng) * jitter, -1, 1);
-    const y = clamp(center.y + randomNormal(rng) * jitter, -1, 1);
-    const z = clamp(center.z + randomNormal(rng) * jitter, -1, 1);
-    rows.push(`${i},${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)},${cluster}`);
+function fitViewToPoints(bounds: THREE.Sphere | null) {
+  if (!bounds) {
+    return;
   }
-
-  return rows.join('\n');
+  const radius = Math.max(bounds.radius, 0.5);
+  const distance = radius * 3.2;
+  controls.target.copy(bounds.center);
+  camera.position.copy(bounds.center).add(new THREE.Vector3(distance * 0.35, distance * 0.2, distance));
+  controls.minDistance = radius * 0.6;
+  controls.maxDistance = radius * 12;
+  scene.fog = new THREE.Fog(0x000000, radius * 2.5, radius * 9);
 }
 
-function parseCsv(text: string): Point[] {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length <= 1) {
-    return [];
-  }
-
-  const points: Point[] = [];
-  for (let i = 1; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    if (!line) {
-      continue;
-    }
-
-    const [idValue, xValue, yValue, zValue, clusterValue] = line.split(',');
-    const x = Number.parseFloat(xValue);
-    const y = Number.parseFloat(yValue);
-    const z = Number.parseFloat(zValue);
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-      continue;
-    }
-
-    const id = Number.parseInt(idValue ?? '0', 10);
-    const cluster = Number.parseInt(clusterValue ?? '0', 10);
-    const safeId = Number.isFinite(id) ? id : i;
-    points.push({
-      id: safeId,
-      x,
-      y,
-      z,
-      cluster: Number.isFinite(cluster) ? cluster : 0,
-      radius: 2 + (safeId % 8) * 0.35,
-    });
-  }
-
-  return points;
-}
-
-function randomNormal(rng: () => number) {
-  let u = 0;
-  let v = 0;
-  while (u === 0) u = rng();
-  while (v === 0) v = rng();
-  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function mulberry32(seed: number) {
-  let t = seed;
-  return () => {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
+function colorForCluster(cluster: number) {
+  const hue = ((cluster * 137.508) % 360 + 360) % 360;
+  const color = new THREE.Color();
+  color.setHSL(hue / 360, 0.65, 0.62);
+  return color;
 }
